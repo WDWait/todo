@@ -3,6 +3,7 @@ package config
 import (
 	"database/sql"
 	"fmt"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 	"log"
 	"os"
@@ -20,8 +21,7 @@ import (
 var DB *sql.DB
 
 // 初始化 db
-func initDB() {
-
+func InitDB() {
 	// 加载环境变量
 	err := godotenv.Load()
 	if err != nil {
@@ -35,43 +35,39 @@ func initDB() {
 	dbPort := os.Getenv("DB_PORT")
 	dbName := os.Getenv("DB_NAME")
 
-	// dsn: data source name
-	// dsn := "user:password@tcp(127.0.0.1:3306)/sql_test?charset=utf8mb4&parseTime=True"
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
 		dbUser, dbPassword, dbHost, dbPort, dbName)
 
-	// 链接数据库
-	open, err := sql.Open("mysql", dsn)
+	// 1. 打开数据库连接
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		log.Fatalf("Error connecting to database: %v", err)
+		log.Fatalf("Error opening database: %v", err)
 	}
 
-	// 测试链接
-	err = DB.Ping()
+	// 2. 使用 db（临时变量）测试连接
+	err = db.Ping()
 	if err != nil {
-		log.Fatalf("fatalf error ping database: %v", err)
+		log.Fatalf("Error pinging database: %v", err)
 	}
 
-	// 赋值全局变量 db
-	DB = open
+	// 3. 测试成功后，才赋值给全局变量
+	DB = db
+	log.Printf("✅ Connected to database %s", dbName)
 
-	// 再次判断
-	if DB != nil {
-		log.Fatalf("Fatalf err DB is nil")
-	}
-	log.Printf("Connected to database %s", dsn)
-
-	// 默认先建一张表 todos
+	// 4. 创建表
 	createTableSQL := `
-		CREATE TABLE IF NOT EXISTS todos (
-		id INT AUTO_INCREMENT PRIMARY KEY,
-		title VARCHAR(255) NOT NULL,
-		completed BOOLEAN DEFAULT FALSE,
-		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-	);`
+        CREATE TABLE IF NOT EXISTS todos (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            completed BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        );`
+
 	_, err = DB.Exec(createTableSQL)
 	if err != nil {
-		log.Fatalf("Fatalf err creating table: %v", createTableSQL)
+		log.Fatalf("Error creating table: %v", err)
 	}
+
+	log.Println("✅ Table 'todos' is ready.")
 }
